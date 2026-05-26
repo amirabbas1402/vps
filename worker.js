@@ -3,19 +3,33 @@ export default {
     const upgradeHeader = request.headers.get("Upgrade");
     
     if (upgradeHeader === "websocket") {
+      const [client, server] = new WebSocketPair();
+      
       const url = new URL(request.url);
       url.hostname = "103.83.86.246";
-      url.protocol = "https:";
+      url.protocol = "wss:";
       
-      const response = await fetch(url.toString(), {
-        method: request.method,
-        headers: request.headers,
-        body: request.body
+      const originWs = new WebSocket(url.toString());
+      
+      server.accept();
+      
+      originWs.addEventListener("message", (event) => {
+        server.send(event.data);
       });
-      return response;
+      
+      server.addEventListener("message", (event) => {
+        originWs.send(event.data);
+      });
+      
+      originWs.addEventListener("close", () => server.close());
+      server.addEventListener("close", () => originWs.close());
+      
+      return new Response(null, {
+        status: 101,
+        webSocket: client
+      });
     }
     
-    // Non-websocket requests
     return new Response("OK", { status: 200 });
   }
 }
